@@ -1,0 +1,69 @@
+pipeline {
+    agent{
+        label 'jdk17'
+    }
+
+    environment {
+        DEPLOYMENT_BRANCH = "master"
+        DEPLOYMENT_DEV_SERVER = "dev-server-name"
+        DEPLOYMENT_UAT_SERVER = "uat-server-name"
+        DEPLOYMENT_NFT_SERVER = "nft-server-name"
+    }
+
+    stages{
+        stage ('Initialise') {
+            steps {
+                stepInitialise()
+            }
+        }
+        stage ('Build Artifacts') {
+            steps {
+                stepGradleConfigure()
+                sh "chmod a+x ./gradlew"
+                sh "./gradlew clean bootJar"
+            }
+        }
+        stage ('sonar scan') {
+            steps {
+                stepSonarAnalysis()
+            }
+        }
+        stage ('black duck scan') {
+            steps {
+                stepBlackDuckScan()
+            }
+        }
+        stage ('Build Application Image') {
+            steps {
+                stepContainerBuildImage("trade-processing", "Dockerfile")
+            }
+        }
+        stage ('build cloud image') {
+            steps {
+                stepKubernetisDeploymentImage()
+            }
+        }
+        stage ('publish to dev cluster') {
+            steps {
+                stepUdeployPushImage("${DEPLOYMENT_DEV_SERVER}")
+            }
+        }
+        stage ('build FAST automation Image') {
+            steps {
+                stepFastAutomationImageBuild("${DEPLOYMENT_DEV_SERVER}")
+            }
+        }
+        stage ('publish to UAT cluster') {
+            steps {
+                stepUdeployPushImage("${DEPLOYMENT_UAT_SERVER}")
+            }
+        }
+        stage ('publish to NFT cluster') {
+            steps {
+                stepUdeployPushImage("${DEPLOYMENT_NFT_SERVER}")
+            }
+        }
+
+
+    }
+}
